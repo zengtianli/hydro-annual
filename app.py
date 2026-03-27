@@ -18,6 +18,7 @@ from pathlib import Path
 import sys
 
 # 添加 src 和 lib 到路径
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from src.common.st_utils import page_config, excel_download, footer
 
