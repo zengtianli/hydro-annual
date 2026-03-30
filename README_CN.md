@@ -1,24 +1,52 @@
-# 📊 水资源年报
+        # hydro-annual
 
-[![GitHub stars](https://img.shields.io/github/stars/zengtianli/hydro-annual)](https://github.com/zengtianli/hydro-annual)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.36+-FF4B4B.svg)](https://streamlit.io)
-[![在线演示](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%BC%94%E7%A4%BA-hydro--annual.tianlizeng.cloud-brightgreen)](https://hydro-annual.tianlizeng.cloud)
+        [English](README.md) | **中文**
 
-浙江省水资源年报数据查询与导出工具（2019–2024）。
+        浙江省水资源年报数据查询与导出工具，涵盖 2019—2024 年。
 
-![screenshot](docs/screenshot.png)
+        [![在线演示](https://img.shields.io/badge/在线演示-hydro--annual.tianlizeng.cloud-blue?style=for-the-badge)](https://hydro-annual.tianlizeng.cloud)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9+-yellow?style=for-the-badge)](https://python.org)
+        [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-## 功能特点
+        ---
 
-- **多年查询** — 浏览 2019 至 2024 年水资源数据
-- **城市与表名筛选** — 按地级市和报表类别过滤
-- **数据概览** — 快速查看汇总统计和记录数
-- **Excel / CSV 导出** — 下载筛选结果
-- **内置数据集** — 预载 CSV 数据，无需上传
+        ---
 
-## 快速开始
+### 无需安装，立即体验
+
+**https://hydro-annual.tianlizeng.cloud**
+
+---
+
+![hydro-annual demo](docs/screenshots/demo.svg)
+
+        ---
+
+        ## 功能一览
+
+        | 功能 | 说明 |
+        |------|------|
+        | **多年数据** | 浏览 2019—2024 年水资源数据 |
+| **地市筛选** | 按浙江各地级市过滤 |
+| **报告类别** | 选择特定报告类别精准查询 |
+| **导出 Excel / CSV** | 以您偏好的格式下载过滤结果 |
+| **内置数据集** | 无需上传文件，数据已内嵌 |
+
+        ## 安装
+
+        ```bash
+        git clone https://github.com/zengtianli/hydro-annual.git
+cd hydro-annual
+pip install -r requirements.txt
+        ```
+
+        ## 快速开始
+
+        ```bash
+        streamlit run app.py
+        ```
+
+        ## 自托管
 
 ```bash
 git clone https://github.com/zengtianli/hydro-annual.git
@@ -27,19 +55,13 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## 部署（VPS）
+或直接使用托管版本：**https://hydro-annual.tianlizeng.cloud**
 
-```bash
-git clone https://github.com/zengtianli/hydro-annual.git
-cd hydro-annual
-pip install -r requirements.txt
-nohup streamlit run app.py --server.port 8504 --server.headless true &
-```
+## 环境要求
 
-## Hydro Toolkit 插件
+        - Python 3.9+
+        - Streamlit 1.36+
 
-本项目是 [Hydro Toolkit](https://github.com/zengtianli/hydro-toolkit) 的插件，也可独立运行。在 Toolkit 的插件管理页面粘贴本仓库 URL 即可安装。也可以直接**[在线体验](https://hydro-annual.tianlizeng.cloud)**，无需安装。
+        ## License
 
-## 许可证
-
-MIT
+        MIT
