@@ -18,7 +18,7 @@
 
 ---
 
-![hydro-annual demo](docs/screenshots/demo.svg)
+![hydro-annual demo](docs/screenshots/demo.png)
 
         ---
 
