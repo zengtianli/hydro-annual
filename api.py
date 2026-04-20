@@ -5,18 +5,27 @@ Run:
 """
 from __future__ import annotations
 
-import base64
 import io
 import sys
 import time
 from pathlib import Path
 from urllib.parse import quote
 
-import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+
+# --- shared helpers (see ~/Dev/devtools/lib/hydro_api_helpers.py) ---
+for _p in [Path.home() / "Dev/devtools/lib", Path("/var/www/devtools/lib")]:
+    if _p.exists():
+        sys.path.insert(0, str(_p))
+        break
+from hydro_api_helpers import (  # noqa: E402
+    build_json_response,
+    cors_origins,
+    df_to_json_safe,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -34,11 +43,7 @@ app = FastAPI(title="hydro-annual-api", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3114",
-        "http://127.0.0.1:3114",
-        "https://hydro-annual.tianlizeng.cloud",
-    ],
+    allow_origins=cors_origins("hydro-annual", 3114),
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -73,31 +78,6 @@ def options() -> dict:
             "by_table": stats.get("by_table", {}),
         },
     }
-
-
-def _df_to_payload(df: pd.DataFrame) -> dict:
-    """Serialize a DataFrame to {columns, rows, totalRows} with JSON-safe values."""
-    safe = df.replace({np.nan: None, pd.NaT: None})
-    columns = [str(c) for c in safe.columns]
-    rows: list[list] = []
-    for row in safe.itertuples(index=False, name=None):
-        out_row: list = []
-        for v in row:
-            if v is None:
-                out_row.append(None)
-            elif isinstance(v, (np.integer,)):
-                out_row.append(int(v))
-            elif isinstance(v, (np.floating,)):
-                fv = float(v)
-                out_row.append(None if fv != fv else fv)  # NaN check
-            elif isinstance(v, (np.bool_,)):
-                out_row.append(bool(v))
-            elif isinstance(v, (pd.Timestamp,)):
-                out_row.append(v.isoformat())
-            else:
-                out_row.append(v)
-        rows.append(out_row)
-    return {"columns": columns, "rows": rows, "totalRows": len(rows)}
 
 
 @app.get("/api/compute")
@@ -157,21 +137,20 @@ def compute(
                 if find_csv_file(y, c, table) is not None:
                     total_hits += 1
         elapsed_ms = int((time.perf_counter() - t_start) * 1000)
-        payload = {
-            "preview": {
+        payload = build_json_response(
+            preview={
                 "query": {"table": table, "years": years, "cities": cities},
                 "stats": {"totalFiles": total_hits, "byTable": by_table},
             },
-            "meta": {
+            meta={
                 "rows": int(len(df)),
                 "cols": int(len(df.columns)),
                 "filename": f"{stem}.xlsx",
                 "elapsedMs": elapsed_ms,
-                "xlsxBytes": len(xlsx_bytes),
             },
-            "results": {"查询结果": _df_to_payload(df)},
-            "xlsxBase64": base64.b64encode(xlsx_bytes).decode("ascii"),
-        }
+            results={"查询结果": df_to_json_safe(df)},
+            xlsx_bytes=xlsx_bytes,
+        )
         return JSONResponse(content=payload)
 
     return Response(
