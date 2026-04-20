@@ -5,15 +5,18 @@ Run:
 """
 from __future__ import annotations
 
+import base64
 import io
 import sys
+import time
 from pathlib import Path
 from urllib.parse import quote
 
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -72,18 +75,44 @@ def options() -> dict:
     }
 
 
+def _df_to_payload(df: pd.DataFrame) -> dict:
+    """Serialize a DataFrame to {columns, rows, totalRows} with JSON-safe values."""
+    safe = df.replace({np.nan: None, pd.NaT: None})
+    columns = [str(c) for c in safe.columns]
+    rows: list[list] = []
+    for row in safe.itertuples(index=False, name=None):
+        out_row: list = []
+        for v in row:
+            if v is None:
+                out_row.append(None)
+            elif isinstance(v, (np.integer,)):
+                out_row.append(int(v))
+            elif isinstance(v, (np.floating,)):
+                fv = float(v)
+                out_row.append(None if fv != fv else fv)  # NaN check
+            elif isinstance(v, (np.bool_,)):
+                out_row.append(bool(v))
+            elif isinstance(v, (pd.Timestamp,)):
+                out_row.append(v.isoformat())
+            else:
+                out_row.append(v)
+        rows.append(out_row)
+    return {"columns": columns, "rows": rows, "totalRows": len(rows)}
+
+
 @app.get("/api/compute")
 def compute(
     table: str = Query(..., description="数据表名 (用水量/供水量/社会经济指标/县级套四级分区)"),
     years: list[int] = Query(..., description="年份列表，重复参数形式 ?years=2020&years=2021"),
     cities: list[str] = Query(..., description="市列表，重复参数形式 ?cities=杭州市&cities=宁波市"),
-    fmt: str = Query("xlsx", pattern="^(xlsx|csv)$", description="导出格式"),
+    fmt: str = Query("xlsx", pattern="^(xlsx|csv|json)$", description="导出格式"),
 ) -> Response:
     if not years:
         raise HTTPException(400, "years 不能为空")
     if not cities:
         raise HTTPException(400, "cities 不能为空")
 
+    t_start = time.perf_counter()
     try:
         df = load_table(table=table, years=years, cities=cities)
     except Exception as e:
@@ -111,11 +140,42 @@ def compute(
             },
         )
 
-    out = io.BytesIO()
-    with pd.ExcelWriter(out, engine="openpyxl") as writer:
+    # Build xlsx bytes (used by both xlsx and json fmt)
+    xlsx_buf = io.BytesIO()
+    with pd.ExcelWriter(xlsx_buf, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="查询结果", index=False)
+    xlsx_bytes = xlsx_buf.getvalue()
+
+    if fmt == "json":
+        stats = get_file_stats()
+        by_table = stats.get("by_table", {})
+        # 估算本次命中的文件数 (years × cities ∩ available)
+        total_hits = 0
+        for y in years:
+            for c in cities:
+                from src.annual.data_loader import find_csv_file
+                if find_csv_file(y, c, table) is not None:
+                    total_hits += 1
+        elapsed_ms = int((time.perf_counter() - t_start) * 1000)
+        payload = {
+            "preview": {
+                "query": {"table": table, "years": years, "cities": cities},
+                "stats": {"totalFiles": total_hits, "byTable": by_table},
+            },
+            "meta": {
+                "rows": int(len(df)),
+                "cols": int(len(df.columns)),
+                "filename": f"{stem}.xlsx",
+                "elapsedMs": elapsed_ms,
+                "xlsxBytes": len(xlsx_bytes),
+            },
+            "results": {"查询结果": _df_to_payload(df)},
+            "xlsxBase64": base64.b64encode(xlsx_bytes).decode("ascii"),
+        }
+        return JSONResponse(content=payload)
+
     return Response(
-        content=out.getvalue(),
+        content=xlsx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f'attachment; filename="{quote(stem)}.xlsx"',
